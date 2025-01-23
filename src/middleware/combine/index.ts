@@ -3,11 +3,11 @@
  * Combine Middleware for Hono.
  */
 
-import type { Context } from '../../context'
-import type { MiddlewareHandler, Next } from '../../types'
-import { TrieRouter } from '../../router/trie-router'
-import { METHOD_NAME_ALL } from '../../router'
 import { compose } from '../../compose'
+import type { Context } from '../../context'
+import { METHOD_NAME_ALL } from '../../router'
+import { TrieRouter } from '../../router/trie-router'
+import type { MiddlewareHandler, Next } from '../../types'
 
 type Condition = (c: Context) => boolean
 
@@ -89,18 +89,22 @@ export const some = (...middleware: (MiddlewareHandler | Condition)[]): Middlewa
  * ```
  */
 export const every = (...middleware: (MiddlewareHandler | Condition)[]): MiddlewareHandler => {
-  const wrappedMiddleware = middleware.map((m) => async (c: Context, next: Next) => {
-    const res = await m(c, next)
-    if (res === false) {
-      throw new Error('Unmet condition')
-    }
-  })
-
-  const handler = async (c: Context, next: Next) =>
-    compose<Context>(wrappedMiddleware.map((m) => [[m, undefined], c.req.param()]))(c, next)
-
   return async function every(c, next) {
-    await handler(c, next)
+    const currentRouteIndex = c.req.routeIndex
+    await compose<Context>(
+      middleware.map((m) => [
+        [
+          async (c: Context, next: Next) => {
+            c.req.routeIndex = currentRouteIndex // should be unchanged in this context
+            const res = await m(c, next)
+            if (res === false) {
+              throw new Error('Unmet condition')
+            }
+            return res
+          },
+        ],
+      ])
+    )(c, next)
   }
 }
 

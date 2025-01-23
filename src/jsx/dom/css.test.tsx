@@ -2,7 +2,7 @@
 import { JSDOM } from 'jsdom'
 // run tests by old style jsx default
 // hono/jsx/jsx-runtime and hono/jsx/dom/jsx-runtime are tested in their respective settings
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
+
 import type { JSXNode } from '..'
 import { Style, createCssContext, css, rawCssString } from '../../helper/css'
 import { minify } from '../../helper/css/common'
@@ -50,6 +50,18 @@ describe('Style and css for jsx/dom', () => {
     expect(root.querySelector('style')?.sheet?.cssRules[0].cssText).toBe(
       '.css-3142110215 {color: red;}'
     )
+  })
+
+  it('<Style nonce="1234" />', async () => {
+    const App = () => {
+      return (
+        <div>
+          <Style nonce='1234' />
+        </div>
+      )
+    }
+    render(<App />, root)
+    expect(root.innerHTML).toBe('<div><style id="hono-css" nonce="1234"></style></div>')
   })
 
   it('<Style>{css`global`}</Style>', async () => {

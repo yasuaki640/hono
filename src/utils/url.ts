@@ -52,7 +52,6 @@ export const getPattern = (label: string): Pattern | null => {
   // *            => wildcard
   // :id{[0-9]+}  => ([0-9]+)
   // :id          => (.+)
-  //const name = ''
 
   if (label === '*') {
     return '*'
@@ -74,6 +73,21 @@ export const getPattern = (label: string): Pattern | null => {
   return null
 }
 
+type Decoder = (str: string) => string
+export const tryDecode = (str: string, decoder: Decoder): string => {
+  try {
+    return decoder(str)
+  } catch {
+    return str.replace(/(?:%[0-9A-Fa-f]{2})+/g, (match) => {
+      try {
+        return decoder(match)
+      } catch {
+        return match
+      }
+    })
+  }
+}
+
 /**
  * Try to apply decodeURI() to given string.
  * If it fails, skip invalid percent encoding or invalid UTF-8 sequences, and apply decodeURI() to the rest as much as possible.
@@ -83,19 +97,7 @@ export const getPattern = (label: string): Pattern | null => {
  * tryDecodeURI('Hello%20World') // 'Hello World'
  * tryDecodeURI('Hello%20World/%A4%A2') // 'Hello World/%A4%A2'
  */
-const tryDecodeURI = (str: string): string => {
-  try {
-    return decodeURI(str)
-  } catch {
-    return str.replace(/(?:%[0-9A-Fa-f]{2})+/g, (match) => {
-      try {
-        return decodeURI(match)
-      } catch {
-        return match
-      }
-    })
-  }
-}
+const tryDecodeURI = (str: string) => tryDecode(str, decodeURI)
 
 export const getPath = (request: Request): string => {
   const url = request.url
@@ -127,7 +129,7 @@ export const getPathNoStrict = (request: Request): string => {
   const result = getPath(request)
 
   // if strict routing is false => `/hello/hey/` and `/hello/hey` are treated the same
-  return result.length > 1 && result[result.length - 1] === '/' ? result.slice(0, -1) : result
+  return result.length > 1 && result.at(-1) === '/' ? result.slice(0, -1) : result
 }
 
 export const mergePath = (...paths: string[]): string => {
@@ -136,7 +138,7 @@ export const mergePath = (...paths: string[]): string => {
 
   for (let path of paths) {
     /* ['/hey/','/say'] => ['/hey', '/say'] */
-    if (p[p.length - 1] === '/') {
+    if (p.at(-1) === '/') {
       p = p.slice(0, -1)
       endsWithSlash = true
     }
@@ -207,7 +209,7 @@ const _decodeURI = (value: string) => {
   if (value.indexOf('+') !== -1) {
     value = value.replace(/\+/g, ' ')
   }
-  return /%/.test(value) ? decodeURIComponent_(value) : value
+  return value.indexOf('%') !== -1 ? decodeURIComponent_(value) : value
 }
 
 const _getQueryParam = (
